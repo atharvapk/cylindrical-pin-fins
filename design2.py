@@ -5,10 +5,10 @@ import time
 
 ## Declare constants
 D_pin = 1.2e-3
-alpha = 3       # Design 1: 0.75, Design 2: 3
+alpha = 3
 num_h = 60
 num_r = 10
-k = 0.621           # Rigid 10K Resin V1
+k = 0.621          # Rigid 10K Resin V1
 
 h_conv = 400       # W/(m^2 K)
 T_inf = 10         # Celsius
@@ -144,6 +144,22 @@ while error > 1e-8:
 print(f"Solver time: {time.time() - start:.3f} s")
 
 temp_soln = new_temp
+
+# Global energy balance: trapezoidal average over the outer side surface.
+surface_temp = temp_soln.reshape(num_h, num_r)[:, -1]
+height_weights = np.full(num_h, dh)
+height_weights[[0, -1]] /= 2
+Q_in = q_flux*np.pi*(D_pin/2)**2
+Q_out = h_conv*2*np.pi*(D_pin/2)*np.dot(height_weights, surface_temp - T_inf)
+avg_surface_temp = np.dot(height_weights, surface_temp)/H_pin
+expected_avg_surface_temp = T_inf + Q_in/(h_conv*2*np.pi*(D_pin/2)*H_pin)
+relative_heat_imbalance = abs(Q_in - Q_out)/Q_in
+
+print(f"Average side temperature: {avg_surface_temp:.8f} C")
+print(f"Expected from energy balance: {expected_avg_surface_temp:.8f} C")
+print(f"Heat input: {Q_in:.10f} W; convection loss: {Q_out:.10f} W")
+print(f"Relative heat imbalance: {relative_heat_imbalance:.3e}")
+print("Energy balance:", "PASS" if relative_heat_imbalance < 1e-5 else "CHECK")
 
 # Reshape node temperatures and place the base at the bottom of the plot.
 temp_map = np.flipud(temp_soln.reshape(num_h, num_r))
