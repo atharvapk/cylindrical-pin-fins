@@ -5,10 +5,10 @@ import time
 
 ## Declare constants
 D_pin = 1.2e-3
-alpha = 0.75        # Design 1: 0.75, Design 2: 3
-num_h = 15
-num_r = 10
-k = 0.621           # Rigid 10K Resin V1
+alpha = 1
+num_h = 50
+num_r = 20
+k = 50
 
 ## Discretization of computational domain
 H_pin = alpha*D_pin
