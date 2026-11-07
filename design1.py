@@ -220,4 +220,33 @@ mp.title(f"Design 1: radial temperature difference (Bi = {Bi:.3f})")
 mp.grid(True, alpha=0.3)
 mp.tight_layout()
 
+# Fin efficiencies: numerical reference is the area-averaged base temperature.
+r_inner = np.maximum(0, radius_list - dr/2)
+r_outer = np.minimum(D_pin/2, radius_list + dr/2)
+base_areas = np.pi*(r_outer**2 - r_inner**2)
+base_temp = np.dot(base_areas, temp_map1[-1, :])/base_areas.sum()
+side_area = 2*np.pi*(D_pin/2)*H_pin
+eta_numerical = Q_out/(h_conv*side_area*(base_temp - T_inf))
+eta_analytical = np.tanh(m_fin*H_pin)/(m_fin*H_pin)
+print(f"Numerical fin efficiency: {eta_numerical:.8f} ({100*eta_numerical:.4f}%)")
+print(f"Analytical fin efficiency: {eta_analytical:.8f} ({100*eta_analytical:.4f}%)")
+
+# Standalone 2-by-2 table: method and efficiency in each row.
+fig, ax = mp.subplots(figsize=(6, 2.5))
+ax.axis("off")
+efficiency_table = ax.table(
+    cellText=[
+        ["Numerical", f"{eta_numerical:.6f} ({100*eta_numerical:.3f}%)"],
+        ["Analytical", f"{eta_analytical:.6f} ({100*eta_analytical:.3f}%)"],
+    ],
+    cellLoc="center", loc="center", colWidths=[0.4, 0.6],
+)
+efficiency_table.auto_set_font_size(False)
+efficiency_table.set_fontsize(12)
+efficiency_table.scale(1, 2)
+ax.set_title("Design 1: fin efficiency")
+fig.text(0.5, 0.08, "Numerical reference: area-averaged base temperature.",
+         ha="center", fontsize=9)
+fig.tight_layout(rect=(0, 0.15, 1, 1))
+
 mp.show()

@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as mp
 from scipy.sparse import csr_array
 import time
 
@@ -7,7 +8,7 @@ D_pin = 1.2e-3
 alpha = 0.75
 num_h = 15
 num_r = 10
-k_values = [0.1, 1, 10, 100, 250, 500, 750]
+k_values = [0.1, 0.621, 1, 10, 100, 250, 500, 750]
 
 h_conv = 400       # W/(m^2 K)
 T_inf = 10         # Celsius
@@ -189,3 +190,67 @@ if __name__ == "__main__":
         print(f"{k:10g} {result['eta_numerical']:15.8f} "
               f"{result['eta_analytical']:15.8f} "
               f"{result['relative_heat_imbalance']:16.3e}", flush=True)
+
+    conductivities = np.array([row["k"] for row in results])
+    efficiency_error_percent = 100*np.abs(1 - np.array([
+        row["eta_numerical"]/row["eta_analytical"] for row in results
+    ]))
+    closest_index = np.argmin(np.abs(efficiency_error_percent - 1.0))
+    closest_k = conductivities[closest_index]
+    closest_error = efficiency_error_percent[closest_index]
+    print(f"Closest sampled point to 1%: "
+          f"(k, error) = ({closest_k:.12g} W/(m K), {closest_error:.12g}%)")
+
+    fig, ax = mp.subplots()
+    ax.semilogx(conductivities, efficiency_error_percent, "o-",
+                label="Calculated efficiency error")
+    ax.axhline(1.0, color="gray", linestyle="--", label="1% threshold")
+    ax.plot(closest_k, closest_error, marker="o", color="red",
+            markersize=8, linestyle="none",
+            label="Closest sampled point to 1%")
+    ax.annotate(
+        f"Closest sampled point\n"
+        f"k = {closest_k:.12g} W/(m K)\n"
+        f"error = {closest_error:.12g}%",
+        xy=(closest_k, closest_error), xytext=(25, 55),
+        textcoords="offset points", arrowprops={"arrowstyle": "->"},
+        bbox={"boxstyle": "round,pad=0.4", "fc": "white", "alpha": 0.9},
+    )
+    # Interpolate error linearly in log(k), matching the plotted line segments.
+    crossing_intervals = np.flatnonzero(
+        (efficiency_error_percent[:-1] - 1.0)
+        * (efficiency_error_percent[1:] - 1.0) <= 0
+    )
+    if crossing_intervals.size:
+        i = crossing_intervals[0]
+        fraction = ((1.0 - efficiency_error_percent[i])
+                    / (efficiency_error_percent[i+1] - efficiency_error_percent[i]))
+        interpolated_k = np.exp(
+            np.log(conductivities[i])
+            + fraction*(np.log(conductivities[i+1]) - np.log(conductivities[i]))
+        )
+        print(f"Interpolated 1% crossing (linear in log(k)): "
+              f"(k, error) = ({interpolated_k:.12g} W/(m K), 1%)")
+        ax.plot(interpolated_k, 1.0, marker="x", color="red",
+                markersize=12, markeredgewidth=2, linestyle="none",
+                label="Interpolated 1% crossing (log k)")
+        ax.annotate(
+            f"Interpolated in log(k)\n"
+            f"k = {interpolated_k:.8g} W/(m K)\nerror = 1%",
+            xy=(interpolated_k, 1.0), xytext=(-35, 110),
+            textcoords="offset points", ha="right",
+            arrowprops={"arrowstyle": "->", "color": "red"},
+            bbox={"boxstyle": "round,pad=0.4", "fc": "white", "alpha": 0.9},
+        )
+    else:
+        print("No sampled interval brackets the 1% threshold.")
+
+    ax.set_xticks(conductivities)
+    ax.set_xticklabels([f"{value:g}" for value in conductivities], rotation=45)
+    ax.set_xlabel("Thermal conductivity, k (W/(m K)) — logarithmic scale")
+    ax.set_ylabel(r"Efficiency error, $100|1-\eta_{num}/\eta_{analytical}|$ (%)")
+    ax.set_title("Design 1: efficiency error versus thermal conductivity")
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+    mp.show()
