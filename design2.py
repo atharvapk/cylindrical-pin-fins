@@ -161,8 +161,9 @@ print(f"Heat input: {Q_in:.10f} W; convection loss: {Q_out:.10f} W")
 print(f"Relative heat imbalance: {relative_heat_imbalance:.3e}")
 print("Energy balance:", "PASS" if relative_heat_imbalance < 1e-5 else "CHECK")
 
-# Reshape node temperatures and place the base at the bottom of the plot.
-temp_map = np.flipud(temp_soln.reshape(num_h, num_r))
+# Original rows run from tip to base; flip only for the contour plot.
+temp_map1 = temp_soln.reshape(num_h, num_r)
+temp_map = np.flipud(temp_map1)
 
 radius_list_nondim = radius_list/(D_pin/2)
 height_list_nondim = height_list/(H_pin)
@@ -172,5 +173,51 @@ cbar = mp.colorbar()
 cbar.set_label(r'Temperature ($\degree C$)', size=12)
 mp.ylabel(r'$h/H_{Pin}$', size=12)
 mp.xlabel(r'$r/R_{Pin}$', size=12)
+
+# Centerline comparison in original tip-to-base node order.
+T_centerline = temp_map1[:, 0]
+z_from_base = H_pin - height_list
+m_fin = np.sqrt(4*h_conv/(k*D_pin))
+
+# Analytical 1D fin: -k*dT/dz = q_flux at the base, dT/dz = 0 at the tip.
+T_analytical = T_inf + (q_flux/(k*m_fin))*np.cosh(
+    m_fin*(H_pin - z_from_base)
+)/np.sinh(m_fin*H_pin)
+
+# Assignment's relative RMS error, using temperatures in Celsius as specified.
+relative_rmse = np.sqrt(np.mean((1 - T_centerline/T_analytical)**2))
+print(f"Centerline relative RMSE (assignment definition): {relative_rmse:.8f} "
+      f"({100*relative_rmse:.4f}%)")
+
+mp.figure()
+mp.plot(z_from_base/H_pin, T_centerline, "o-", label="Numerical centerline")
+mp.plot(z_from_base/H_pin, T_analytical, "--", label="Analytical adiabatic tip")
+mp.xlabel(r"$z/H_{Pin}$ (base = 0, tip = 1)")
+mp.ylabel(r"Temperature ($\degree C$)")
+mp.title(f"Design {1 if alpha == 0.75 else 2}: centerline comparison\n"
+         f"Relative RMSE = {relative_rmse:.6f} ({100*relative_rmse:.3f}%)")
+mp.legend()
+mp.grid(True, alpha=0.3)
+mp.tight_layout()
+
+# Compare centerline and surface temperatures at each height.
+# Their difference is a function of height, not a radial temperature profile.
+T_surface = temp_map1[:, -1]
+radial_difference = T_centerline - T_surface
+Bi = h_conv*(D_pin/2)/(2*k)
+max_difference_index = np.argmax(np.abs(radial_difference))
+
+print(f"Radial Biot number (h*R/(2*k)): {Bi:.6f}")
+print(f"Maximum absolute centerline-to-surface difference: "
+      f"{abs(radial_difference[max_difference_index]):.6f} C "
+      f"at z/H = {z_from_base[max_difference_index]/H_pin:.4f}")
+
+mp.figure()
+mp.plot(z_from_base/H_pin, radial_difference, "o-")
+mp.xlabel(r"$z/H_{Pin}$ (base = 0, tip = 1)")
+mp.ylabel(r"$T_{center}-T_{surface}$ ($\degree C$)")
+mp.title(f"Design 2: radial temperature difference (Bi = {Bi:.3f})")
+mp.grid(True, alpha=0.3)
+mp.tight_layout()
 
 mp.show()
