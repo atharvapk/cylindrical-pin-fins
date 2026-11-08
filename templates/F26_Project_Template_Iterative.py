@@ -1,3 +1,4 @@
+## Code Template courtesy of J. Gutierrez Plascencia, UC Davis
 import numpy as np
 import matplotlib.pyplot as mp
 from scipy.sparse import csr_array
