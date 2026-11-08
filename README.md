@@ -1,4 +1,4 @@
-# EME 165, Fall 2026
+## Heat Transfer, Fall 2026
 
 From: Atharva Kharwadkar  
 Date: 6 November 2026
